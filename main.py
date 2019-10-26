@@ -1,11 +1,11 @@
 import os
 import json
 from flask import Flask, request
-import cv2
 import tensorflow as tf
 from keras.backend import set_session
 from keras.models import load_model
 import numpy as np
+import cv2
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
