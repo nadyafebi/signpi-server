@@ -1,12 +1,35 @@
-from flask import Flask, request
 import os
+import json
+from flask import Flask, request
+import cv2
+import tensorflow as tf
+from keras.backend import set_session
+from keras.models import load_model
+import numpy as np
 
-app = Flask(__name__)
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
 
 # Setup folder
-save_dir = os.path.join(os.path.dirname(__file__), 'imgs')
+base_dir = os.path.dirname(__file__)
+save_dir = os.path.join(base_dir, 'imgs')
 if not os.path.exists(save_dir):
     os.makedirs(save_dir)
+
+# Setup session
+sess = tf.Session()
+graph = tf.get_default_graph()
+set_session(sess)
+
+# Setup model
+model_path = os.path.join(base_dir, 'mnist.h5')
+model = load_model(model_path)
+
+# Setup Flask
+app = Flask(__name__)
 
 @app.route('/')
 def hello():
@@ -14,11 +37,30 @@ def hello():
 
 @app.route('/send', methods=['POST'])
 def send():
-    file = request.files['image']
-    save_path = os.path.join(save_dir, file.filename)
-    file.save(save_path)
+    with graph.as_default():
+        set_session(sess)
 
-    return 'Image saved.'
+        # Save image to server storage
+        files = request.files.getlist('images')
+        imgs = []
+        for file in files:
+            save_path = os.path.join(save_dir, file.filename)
+            file.save(save_path)
+
+            # Read and resize image
+            img = cv2.imread(save_path, cv2.IMREAD_GRAYSCALE)
+            img = cv2.resize(img, (28, 28))
+            imgs.append(img)
+
+        imgs = np.resize(imgs, (len(imgs), 28, 28, 1))
+
+        # Predict and return result
+        outputs = model.predict(imgs)
+        s = []
+        m = { 0: 'zero', 1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 9: 'nine'}
+        for output in outputs:
+            s.append(m[np.argmax(output)])
+        return json.dumps(' '.join(s), cls=NumpyEncoder)
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=8080, debug=True)
