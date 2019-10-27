@@ -22,6 +22,15 @@ def squarify(img):
     start_y = y // 2 - smol // 2
     return img[start_y:start_y + smol, start_x: start_x + smol]
 
+# Adjust image brightness & contrast
+def adjust(img, alpha, beta):
+    new_img = np.zeros(img.shape, img.dtype)
+    for y in range(img.shape[0]):
+        for x in range(img.shape[1]):
+            for c in range(img.shape[2]):
+                new_img[y,x,c] = np.clip(alpha*img[y,x,c] + beta, 0, 255)
+    return new_img
+
 # Setup folder
 base_dir = os.path.dirname(__file__)
 save_dir = os.path.join(base_dir, 'imgs')
@@ -61,7 +70,8 @@ def send():
             img = cv2.imread(save_path, cv2.IMREAD_COLOR)
             img = squarify(img)
             img = cv2.resize(img, (100, 100))
-            cv2.imwrite('x' + file.filename, img)
+            img = adjust(img, 1.25, -50)
+            cv2.imwrite(os.path.join(save_dir, 'x' + file.filename), img)
             img = np.resize(img, (1, 100, 100, 3))
 
             # Predict image and add to output
